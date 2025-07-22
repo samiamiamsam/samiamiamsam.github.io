@@ -1,0 +1,763 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>US Environmental Data Story</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 2rem 0;
+      font-family: 'Inter', sans-serif;
+      background: #f8fafc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+      flex-direction: column;
+      color: #334155;
+    }
+    .title-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 800px;
+      margin-bottom: 0.5rem;
+    }
+    .title-buttons {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    h1 {
+    font-weight: 700;
+    font-size: 1.75rem; /* Reduced from 2rem */
+    margin: 0;
+    }
+    .visualization-wrapper {
+        position: relative;
+        margin-bottom: 1rem; /* Creates space below the map */
+    }
+    .container {
+      position: relative;
+      background-color: white;
+      border-radius: 1rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      padding: 1rem;
+    }
+    svg {
+      display: block;
+    }
+    .state {
+      stroke: #e2e8f0;
+      stroke-width: 1;
+      transition: opacity 0.3s ease-in-out, fill 0.5s ease-in-out, stroke-width 0.3s, stroke 0.3s;
+    }
+    .state.interactive:hover {
+        opacity: 0.7;
+        cursor: pointer;
+    }
+    .state.highlighted {
+        stroke: #fbbf24;
+        stroke-width: 3;
+        z-index: 10;
+        opacity: 1 !important;
+    }
+    .state.faded {
+        opacity: 0.3;
+    }
+    .tooltip {
+      position: absolute;
+      background: rgba(15, 23, 42, 0.9);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      text-align: left;
+    }
+    .tooltip.map-tooltip {
+      transform: translate(-50%, -110%);
+    }
+    .tooltip.chart-tooltip {
+      transform: translate(0, 0);
+    }
+    .bar {
+      transition: fill 0.2s;
+    }
+    .bar.temperature {
+      fill: url(#temperature-gradient);
+    }
+    .bar.precipitation {
+      fill: url(#precipitation-gradient);
+    }
+    .controls-container {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+        height: 50px;
+        align-items: center;
+    }
+    .back-button, .unit-toggle, .tour-button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.2s;
+      color: white;
+    }
+     .back-button {
+      background-color: #3b82f6;
+    }
+    .back-button:hover {
+      background-color: #1e40af;
+    }
+    .tour-button {
+        background-color: #16a34a;
+    }
+    .tour-button:hover {
+        background-color: #15803d;
+    }
+    .unit-toggle {
+      background-color: #4b5563;
+    }
+    .unit-toggle:hover {
+      background-color: #1f2937;
+    }
+    #legend-container {
+      margin-top: 0.5rem;
+      height: 60px; /* Reserve space */
+    }
+    .slider-container {
+      margin: 0.5rem 0;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      justify-content: center;
+    }
+    .slider-label {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    input[type=range] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 300px;
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 5px;
+        outline: none;
+        transition: background 0.2s;
+    }
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+        border: 3px solid white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        margin-top: -8px;
+        transition: background-color 0.2s;
+    }
+    input[type=range]::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+        border: 3px solid white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    input[type=range]:hover::-webkit-slider-thumb {
+        background: #2563eb;
+    }
+    input[type=range]:hover::-moz-range-thumb {
+        background: #2563eb;
+    }
+    .line {
+        fill: none;
+        stroke-width: 3px;
+    }
+    .line.temperature { stroke: #ef4444; }
+    .line.precipitation { stroke: #3b82f6; }
+    .dot { cursor: pointer; }
+    .dot.temperature { fill: #ef4444; }
+    .dot.precipitation { fill: #3b82f6; }
+    #story-container {
+        height: 90px;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    #story-box {
+        background: rgba(241, 245, 249, 0.95);
+        padding: 15px 25px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        max-width: 750px;
+        width: 90%;
+        border: 1px solid #cbd5e1;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.5s, visibility 0.5s;
+        text-align: center;
+    }
+    #story-box.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+    #story-box h3 { margin-top: 0; font-size: 1.25rem; color: #1e3a8a; }
+    #story-box p { margin-bottom: 0; font-size: 1rem; color: #334155; }
+  </style>
+</head>
+<body>
+  <div class="title-container">
+      <h1 id="title">US Environmental Data Story</h1>
+      <div class="title-buttons">
+        <div id="tour-controls">
+            <button id="start-tour-button" class="tour-button">Start Guided Tour</button>
+        </div>
+        <button id="unit-toggle" class="unit-toggle" style="display: none;">Switch to °C</button>
+      </div>
+  </div>
+  <div class="slider-container" id="main-slider" style="display: none;">
+    <span class="slider-label">Temperature</span>
+    <input type="range" id="data-slider" min="0" max="2" value="0" step="1">
+    <span class="slider-label">Precipitation</span>
+  </div>
+  <div id="slider-label-center" class="slider-label" style="display: none; margin-top: -1rem; font-weight: 400;">Both</div>
+
+  <div class="visualization-wrapper">
+    <div id="container" class="container"></div>
+  </div>
+
+  <div id="story-container">
+    <div id="story-box">
+        <h3></h3>
+        <p></p>
+    </div>
+  </div>
+
+  <div id="legend-container"></div>
+  
+  <script>
+    // --- Configuration ---
+    const MAP_WIDTH = 800;
+    const MAP_HEIGHT = 500;
+    const CHART_WIDTH = 800;
+    const CHART_HEIGHT = 420;
+
+    // --- DATA (Full CSV data included here) ---
+    const temperatureCsvData = `State Name,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,avg
+Alabama,63.9,63.1,63.5,63,63.1,63.8,63.6,63.8,64.1,63.1,62.5,62.8,64.6,64.9,61.5,62.6,64.6,66.1,64,65,65.6,64.6,64,64.6,64.7,65.3,63.93846154
+Alaska,24.4,29.6,26.8,30.1,28.2,29.9,28.2,27.3,27.7,25,26.9,27.9,25.3,26.2,28.5,29.4,30.9,30.8,29.5,30.5,31,28.9,25.8,29.3,27.8,29.9,28.3
+Arizona,60.8,61.2,61.4,61.7,61.4,60.6,61.1,60.7,61.7,61.1,60.8,60.3,60.7,61.5,61.1,62.1,61.5,62.2,63.5,61.8,60.4,62.5,62.2,61,60.9,62.4,61.40769231
+Arkansas,62.1,60.5,61.7,60.1,60.6,61.3,62.2,61.4,61.7,59.8,59.8,61.3,62.4,63.4,59.1,59,61.5,63.3,61.8,61.6,61.5,60.9,61.6,61.8,62.1,63.3,61.35769231
+California,58,58.5,59.1,59.5,58.9,58.9,58.6,58.4,58.9,59.4,58.7,57.7,57.5,59.1,60,61.3,60.4,59.9,60.9,59.9,58.3,60.5,60.4,59.8,58.5,60.5,59.29230769
+Colorado,46.6,46.6,46.9,46.6,46.6,46.2,46.7,45.6,46.3,45.6,45,46,45.9,47.8,45.4,46.3,47.1,47.3,48.3,46.9,45.4,47.2,47.5,45.9,45.7,47.3,46.48846154
+Connecticut,50.6,48.6,50.9,49.5,47.9,49.2,50.3,50.9,49.4,49,49.3,51,51.6,52.2,49.4,48.7,50.4,52,50.3,50.9,50.3,51.5,51,52.1,51.7,51.6,50.39615385
+Delaware,56.1,54.7,56.7,56.3,54.5,56.3,56.4,57.2,56,55.8,55.7,56.4,58.2,58.3,55.2,54.9,56.6,57.8,57.1,57.4,57.9,57.7,57,57.5,57.3,57,56.61538462
+Florida,71,70.1,71.5,70.7,71.3,71.1,70.9,71.4,71.5,70.7,70.8,69.4,72.1,72.3,70.9,71,73.2,73,72.2,72.6,73.5,73,72.1,72.9,73,72.5,71.71923077
+Georgia,64.2,63.1,64.3,63.9,63.5,64.4,64,64.3,64.5,63.6,63,63,65.3,65.7,62.4,63.4,65.3,66.5,64.9,65.6,66.5,65.3,64.5,65.3,65.2,65.5,64.50769231
+Hawaii,65.2,66.5,66.5,66.6,66.9,67.1,66.8,66.5,65.9,65.7,66.3,65.9,66.2,65.6,66.3,67,67.5,66.7,66.7,67,67.7,67.5,66.5,67.3,66.9,66.7,66.59615385
+Idaho,43.5,43.7,44.3,43.6,44.7,44.5,43.7,43.6,44.7,43,43.1,43,42.6,44.6,44.3,45.2,46.1,44.5,45.3,44.2,43.1,44.3,45.2,43.5,44,45.2,44.13461538
+Illinois,53.7,52.1,54,52.3,51.9,53,54.4,53.4,53.4,50.4,51.5,53,53.9,55.6,50.3,50,53,55.2,53.7,52.6,52.6,53.1,53.2,53.1,54.1,55.2,53.02692308
+Indiana,53.2,51.6,53.8,52.1,51.3,52.7,53.6,52.9,52.9,50.5,51.5,52.6,53.8,54.9,50.3,49.9,52.5,54.8,53.2,52.8,53,53,53,53.2,53.6,54.8,52.75
+Iowa,50,48.6,49.7,48.4,47.8,48.6,50.7,49.5,48.5,45.6,46.7,48.3,49.4,51.7,46,46.1,49.1,51.1,49.5,47.6,47.2,49.2,49.3,48.3,50.2,51.4,48.78846154
+Kansas,56.1,55.3,56.2,55,54.9,55,56.8,55.7,55.3,53.7,53.3,55.3,55.9,57.9,53.5,53.9,56.3,57.3,56.2,54.7,54,55.6,55.8,55.4,55.7,57.5,55.47307692
+Kentucky,57,55.5,57.1,56,55.6,57,57.1,56.4,57.3,55.1,55.4,56,57.6,58.2,54.2,54.8,56.5,58.7,56.9,57.4,57.9,56.8,56.6,57.3,57.3,58.5,56.7
+Louisiana,67.7,66.7,67.1,66.2,66.8,67.5,67.6,67.3,67.3,66.8,66.4,66.6,68.4,68.5,65.5,65.4,68.2,69.4,67.7,68.3,68,67.9,67.3,67.9,68.9,69.2,67.48461538
+Maine,43.8,40.9,43.2,40.7,40.2,40.9,42.8,43.5,40.8,40.7,41.9,44.3,43,43.7,41.8,41,41.9,43.4,41.8,41.7,41.2,43.6,43.3,44.5,44,44.7,42.43461538
+Maryland,55.4,54.1,55.9,55.4,53.9,55.7,55.8,56.3,55.5,54.8,54.9,55.6,57.2,57.4,54,53.8,55.6,57,56.1,56.2,57,56.9,56.5,56.7,56.8,56.9,55.82307692
+Massachusetts,49.6,47.6,49.7,48.2,47,48.1,49.2,49.9,48.2,47.9,48.3,50.1,50.3,51.1,48.4,47.6,49,50.6,49,49.6,49.1,50.6,50.4,51.3,50.8,50.7,49.31923077
+Michigan,46.5,45.4,47.1,44.8,43.8,44.9,47,46.5,46,43.2,44.5,46.7,46.3,48.3,43.2,42.2,45.6,47.6,45.9,44.8,44.8,46.4,46.6,46.1,47.1,48.3,45.75384615
+Minnesota,43.9,42.3,43.2,41.4,41.1,41.5,44.4,43.6,41.9,38.9,40.7,42.5,43.1,44.6,38.6,39.6,43.4,44.7,42.3,40.3,39.9,42.8,43.1,41,43.8,45.1,42.21923077
+Mississippi,64.8,63.7,64.3,63.4,63.7,64.4,64.4,64.3,64.7,63.5,63.3,63.6,65.2,65.5,62.2,62.8,65.3,66.7,64.7,65.3,65.5,65.2,64.5,65.4,65.9,66.4,64.56538462
+Missouri,56.6,54.9,56.3,54.7,54.7,55.3,56.9,56,56.1,53.2,53.8,55.3,56.4,58.3,52.9,53.3,55.8,57.8,56.5,55.5,55.3,55.7,55.9,55.8,56.6,57.9,55.67307692
+Montana,44,42.6,43.5,41.6,42.7,42.9,44.2,43.6,43.7,41.6,41.1,41.4,42.1,44.3,42.6,41.9,44.8,43.9,43.7,41.5,39.8,43.6,43.7,42.1,43.5,44.6,42.88461538
+Nebraska,51.2,49.8,50.5,49.8,49.5,49.7,51.9,49.8,49.9,48,47.3,49.2,49.6,52.3,48.5,48.2,50.7,51.6,50.5,48.5,47.6,50.7,50.7,49.6,50.1,52.1,49.89615385
+Nevada,50.6,51,51.7,51.6,51.4,51,52,50.8,50.2,51.5,51,50.2,50.1,49.7,51.6,51.4,53.1,52.3,51.8,53,51.6,50,52.3,52.6,51.2,50.3,51.32307692
+New Hampshire,45.2,43.1,45.3,43.3,42.4,43.5,44.9,45.4,43.1,43,43.7,45.6,45.4,46.4,44.3,42.9,44.3,46,44.3,44.4,43.9,45.7,45.4,46.6,46.3,46.4,44.63076923
+New Jersey,53.8,52.2,54.2,53.4,51.7,53.5,54.2,54.8,53.4,53,53.1,54.3,55.6,55.7,52.6,52.1,54.2,55.4,54,54.4,54.8,55.2,54.7,55.4,55,55.1,54.06923077
+New Mexico,54.3,54.6,54.9,54.7,55.2,53.8,54.6,54.1,54.4,54.1,53.9,54.2,55,55.5,54,54.7,54.8,55.8,56.4,55.4,54.6,55.8,55.5,54.6,55.3,55.9,54.85
+New York,46.8,45.2,47.5,45.6,44.4,45.7,47.2,47.2,45.7,44.9,45.6,47,47.7,48.7,45.1,44.5,46.3,48,46.2,46.2,45.9,47.5,47,47.8,47.9,48.4,46.53846154
+North Carolina,59.2,58.4,59.7,59.5,58.9,59.8,59.7,59.6,60.1,59.2,58.7,59,61,60.7,57.8,58.7,60.4,61.4,60.2,60.9,61.7,60.4,60.1,60.6,60.4,60.6,59.87307692
+North Dakota,43.4,41.5,42.2,40.5,40.2,40.8,44,42.8,41.4,39,38.9,40.6,41.8,43.4,38.6,39.6,43.3,44.1,42.1,39.6,38.3,42.9,42.8,39.8,41.9,43.5,41.42307692
+Ohio,52.1,50.9,52.9,51.5,50.4,51.8,52.6,52.2,51.9,49.9,50.9,51.6,53,53.9,50,49.6,51.9,54.2,52.4,52.4,53,52.7,52.6,52.8,53,54.2,52.09230769
+Oklahoma,61.4,59.9,61.1,59.2,60,60.2,61.4,61.2,60.3,59.5,59.2,60.3,62.3,62.9,58.5,59,60.9,62.5,61.5,60.3,60.2,60.5,60.6,61.4,61.1,63.1,60.71153846
+Oregon,47,47.4,47.8,48.3,48.5,48.6,47.8,47.6,47.6,47.3,47.5,46.9,46.3,47.6,48.2,49.7,49.9,48.2,48.9,48.3,47.1,48.8,49.2,48.1,48.2,49,48.06923077
+Pennsylvania,49.9,48.5,50.5,49.3,47.9,49.6,50.2,50.4,49.3,48.1,48.9,49.8,51.1,51.7,48.2,47.7,49.7,51.5,49.9,50,50.4,50.9,50.6,50.8,51,51.4,49.89615385
+Rhode Island,51.5,49.6,51.7,50.2,48.7,49.8,50.9,51.6,50.2,50.1,50.2,51.7,52.3,52.6,50.3,49.7,50.9,52.5,51,51.7,51.2,52.5,52.1,53,52.1,51.9,51.15384615
+South Carolina,62.9,62.2,63.6,63.2,62.5,63.6,63.3,63.4,63.9,63,62.4,62.6,64.7,64.7,61.5,62.6,64.4,65.6,64.2,64.8,65.3,64.3,63.5,64.3,63.9,64.4,63.64615385
+South Dakota,48.1,46.1,46.6,45.9,45.8,46.4,48.6,47.1,46.5,43.9,43.4,45,45.8,48.8,44,44.1,47.3,48.1,46.9,44.1,42.5,47.3,47.4,45.2,46.4,48.3,46.13846154
+Tennessee,58.9,57.7,58.8,58.1,57.9,59,58.9,58.5,59.6,57.5,57.4,58,59.7,60.2,56.2,57.1,58.9,61.1,59,59.6,60.1,59,58.7,59.3,59.1,60.4,58.79615385
+Texas,66.6,65.9,66.1,64.8,65.7,65.4,66.2,66.3,65.1,65.7,65.5,65.2,67.8,67.6,64.8,64.8,66,67.5,66.7,66.3,66.2,66.6,66,67,67.5,68.4,66.21923077
+Utah,49.2,49.8,50,49.6,49.7,49.4,49.1,48.5,49.9,48.7,48.2,48.2,48.1,50,48.6,50.6,50.3,50.2,51.3,49.9,48,50.3,50.8,49.2,48.8,50.8,49.50769231
+Vermont,44.1,42.1,44.4,42.3,41.3,42.4,44.4,44.5,42.3,42.2,43.1,44.5,44.8,45.6,42.9,41.8,43.4,45,43.1,43.1,42.6,44.6,44.2,45.5,45.5,45.7,43.66923077
+Virginia,55.9,54.9,56.3,55.9,55,56.4,56.3,56.4,56.5,55.4,55.2,55.9,57.6,57.5,54.4,54.8,56.5,57.7,56.6,56.9,57.8,57.1,56.7,57,57,57.6,56.35769231
+Washington,46.6,46.3,47,47.2,47.7,48.5,47.7,46.9,46.7,46,46.9,46.7,45.4,46.9,47.6,48.5,49.8,47.9,47.7,48,46.5,48.1,48,47.3,48.1,48.5,47.40384615
+West Virginia,52.6,51.8,53.2,52.4,51.8,53.3,53.2,52.7,52.9,51.5,51.8,52,54.2,54.2,50.9,51.2,53,55,53.1,53.7,54.6,53.6,53.2,53.3,53.4,54.4,52.96153846
+Wisconsin,45.6,44.2,45.7,43.7,43,43.8,46.2,45.4,44.3,41.1,43.1,45.2,44.9,47.1,40.9,41,44.9,46.5,44.4,43,42.8,44.7,44.8,44,46.1,47,44.36153846
+Wyoming,43.1,42.3,43.1,42,42.5,42.7,43,42.3,43.3,41.3,40.8,41.8,41.5,44.4,42,42.3,43.9,43.4,43.9,42.2,40.4,42.7,43.6,41.6,41.9,44,42.53846154`;
+
+    const precipitationCsvData = `State Name,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,avg
+Alabama,45.76,42.49,59.46,54.35,64.66,59.47,59.45,46.65,37.61,53.4,75.56,45.01,52.12,54.21,61.13,57.67,61.08,50.12,57.34,68.09,57.73,64.95,66.27,59.96,51.77,52.05
+Alaska,40.69,41.08,36.54,39.56,38.38,39.48,39.24,40.38,33.62,38.32,33.09,34.48,38.97,38,41.64,35.58,39.64,37.26,37.6,37.96,37.39,39.19,39.11,42.44,42.16,39.53
+Arizona,10.51,12.55,9.28,7.1,10.9,15.64,10.39,10.42,12.19,10.84,9.92,10.55,9.84,10.6,10.86,12.83,14,12.95,7.96,12.61,13.64,7.42,11.56,13.98,10.19,8.56
+Arkansas,39.23,46.86,55.94,49.49,47.43,59.08,35.04,51.64,41.51,61.49,73.38,36.47,57.16,42.93,50.18,49.42,65.84,51.44,49.94,66.13,67.29,61.79,49.5,54.19,54.03,51.26
+California,19.18,19.86,21.72,18.38,21.98,25.05,29.08,19.88,20.13,12.01,22.26,25.98,20.63,21.52,7.28,20.01,20.78,29.26,21.58,19.99,25.95,13.66,15.73,21.9,23.76,22.39
+Colorado,20.21,16.68,16.43,11.65,16.9,20,17.95,18.7,19.31,16.84,18.69,18.02,17.6,12.53,19.06,18.61,22.1,18.35,17.43,15.53,18.25,12.25,17.14,17.59,18.29,18.8
+Connecticut,45.3,47.74,39.03,48.13,55.36,51.57,55.74,54.53,44.56,60.08,50.44,48.96,63.19,38.25,44.47,45.68,35.75,38.15,44.4,64.2,50.06,43.44,51.54,47.16,62.99,45.95
+Delaware,43.13,45.92,38.66,45.56,58.54,46.79,46.39,46.8,36.31,43.11,56.43,40.89,43.5,40.23,50.81,46.87,43.98,46,44.51,60.49,40.76,55.07,42.73,39.51,47.9,32.43
+Florida,47.84,39.35,53.94,56.99,59.55,56.7,59.19,42.06,44.04,52.13,56.15,48.13,43.66,54.76,59.98,58.06,56.07,51.07,57.88,61.54,49.69,58.2,55.86,54.3,56.22,55.88
+Georgia,40.21,39.53,43.08,47.38,58.31,51.53,56.62,39.14,37.23,46.24,64.88,40.32,39.82,42.3,63.5,51.72,55.88,44.84,44.9,62.92,47.89,60.13,56.52,48.65,50.79,53.4
+Hawaii,55.75,49.66,67.98,54.94,57.8,77.26,60.47,69.83,59.07,52.95,53.55,43.44,52.1,48,51.49,67.77,76.49,73.39,58.54,95.7,72.99,60.66,60.36,39.72,60.72,54.27
+Idaho,22.72,18.85,20.73,19.2,22.27,22.09,27.48,23.03,21.73,21.16,22.7,26.39,25.23,24.28,17.76,26.51,23.12,25.55,28.28,21.32,25.15,20.56,20.99,21.61,22.97,21.12
+Illinois,33.03,39.96,40.15,37.49,39.1,43.33,28.83,40.82,36.18,48.75,51.39,40.43,46.8,32.03,40.4,41.07,48.16,41.01,36.97,47.8,50.91,40.03,39.6,38.82,36.22,37.77
+Indiana,32.66,41.88,45.18,41.37,48.46,47.03,37.06,52.49,40.27,48.08,45.96,37.37,57.09,35.13,42.76,43.35,46.74,45.72,43.98,51.48,50.67,40.2,44.68,39.85,38.81,39.33
+Iowa,31.72,30.42,33.57,29.47,29.26,35.76,29.52,32.32,42.17,42.91,39.77,43.69,31.46,25.98,33.92,38.78,42.58,39.07,31.81,45.34,41.76,29.11,30.38,28.47,26.82,35.52
+Kansas,29.33,26.37,27.5,21.56,25.76,31.85,28.13,25.32,32.77,33.02,32.2,27.82,23.78,20.06,28.43,25.56,32.88,31.76,27.86,32.49,36.33,25.9,26.24,21.94,25.82,26.96
+Kentucky,35.18,43.59,47.21,51.62,57.88,56.96,40.31,51.14,40.91,47.87,53.28,42.18,65.99,45.01,52.52,46.74,58.21,51.56,48.48,66,61.05,57.76,54.57,49.46,44.5,49.76
+Louisiana,41.39,51.28,66.74,61.37,55.96,70.95,46.06,58.54,50.12,53.67,65.07,43.01,42.96,69.11,52.56,59.74,65.73,69.43,62.13,67.4,63.7,62.94,65.26,60.15,46.48,66.51
+Maine,44.54,40.86,31.16,39.63,45.68,40.17,63.53,49.98,47.93,55.68,49.96,48.13,51.25,45.7,47.6,49.21,42.49,42.69,46.27,46.92,47.8,39.46,40.28,52.99,52.34,40.92
+Maryland,42.02,43.52,35.59,41.4,60.74,48.25,43.74,44.38,34.67,45.84,51.55,40.5,51,41.58,45.24,45.9,46.07,41.8,40.47,65.48,42.48,51.88,43.34,42.4,41.87,34.95
+Massachusetts,43.16,48.87,40.41,47.43,51.98,50,57.6,51.44,44.71,60.93,51.26,49.83,60.5,40.48,47.9,50.7,39.84,38.38,47.29,61.83,49.27,42.84,55.4,47.47,58.17,42.44
+Michigan,29.77,32.57,35.06,30.64,32.25,36.25,29.96,35.04,31.66,34.98,33.5,31.7,37.61,32.08,37.14,35.73,32.19,36.91,38.23,36.72,42.38,33.52,32.78,33.94,33.85,33.19
+Minnesota,29.1,28.23,28.68,28.59,22.73,30.5,30.71,22.72,28.98,27.73,26.67,33.6,23.86,26.62,28.8,28.81,29.51,33.98,27.89,30.16,35.88,24.07,23.6,27.28,23.6,29.36
+Mississippi,41.37,47.41,66.43,61.77,61.48,65.16,53.17,51.23,41.02,59.01,69.86,43.21,52.63,64.01,55.94,60.84,59.47,56.23,55.89,69.32,70.61,63.88,65.52,62.75,49.33,53.56
+Missouri,34.94,36.31,44.27,38.16,41.6,47.31,33.55,38.78,38.24,55.47,52.94,43.47,45.98,33.06,43.47,39.41,55.23,40.38,41.25,44.4,55.19,45.25,42.39,41.23,36.64,42.19
+Montana,17.18,14.98,15.69,17.28,17.32,16.33,20.62,17.56,18.51,19.56,17.19,22.68,22.31,16.63,20.18,21.57,16.61,21.17,17.68,19.86,21.57,16.44,14.53,18.09,18.52,17.11
+Nebraska,22.82,21.01,23.76,15.79,20.11,22.96,23.37,21.8,28.25,28.34,25.63,27.62,25.04,13.52,23.34,24.97,28.25,25.92,25.05,28.75,31.7,18.32,22.19,16.95,23.94,21.99
+Nevada,7.87,10.19,8.46,6.09,9.83,13.07,12.77,8.53,8.74,7.08,9.8,11.9,9.28,8.62,7.29,9.91,12.56,12.31,9.25,9.63,13.19,6.11,8.77,10.67,12.15,8.16
+New Hampshire,43.64,46.46,35.92,44.6,48.97,45.46,62.32,57.04,47.74,61.24,51.41,49.79,58.13,43.95,47.24,49.53,42.63,40.42,50.49,53.07,47.58,41.21,46,49.41,56.36,41.7
+New Jersey,43.17,45.18,34.73,46.24,55.92,51.07,49.63,49.84,45.39,48.09,52.88,45.29,63.4,42.21,46.5,50.26,42.62,40.11,43.93,66.53,49.35,49.42,49.38,44.35,53.04,37.11
+New Mexico,14.67,14.29,11.18,11.84,9.49,18.39,12.87,16.85,14.32,13.33,13.18,13.46,10,8.63,13.2,14.58,18.44,14.13,13.25,13.11,13.35,8.31,12.21,14.58,10.78,12.28
+New York,36.5,44.56,34.72,43.89,47.75,46.83,47.02,48.8,42.56,48.2,42.25,43.53,56.99,38.39,44.47,42.97,40.03,39.84,47.43,49.57,46.57,38.56,46.25,45.11,47.66,41.22
+North Carolina,51.66,41.46,40.76,44.76,62.53,50.16,48.31,51.5,32.98,46.77,55.37,43.22,46.9,48.45,55.06,50.74,57.17,51.77,47.79,68.41,51.67,66.81,47.77,46.3,49.79,49.34
+North Dakota,19.78,21.28,16.91,15.83,16.68,18.7,20.65,13.89,18.96,20.29,19.12,23.65,20.81,15.1,23.35,18.68,17.46,22.11,12.74,17.96,24.35,12.79,15.83,18.58,17.44,18.56
+Ohio,31.47,39.51,38.08,38.13,48.42,48.51,36.48,44.99,39.01,44.21,35.79,36.47,57.86,36.49,41.16,38.94,41.89,40.11,43.75,52.04,46.96,40.78,42.02,42.15,37.89,34.97
+Oklahoma,36.29,38,31.92,32.92,29.98,41.51,25,31.03,41.92,38.46,39.24,30.46,27.82,25.61,35.26,29.75,53.01,33.28,36.55,42.58,46.48,37.86,32.02,30.2,38.04,35.31
+Oregon,32.3,23.75,30.2,26,32.45,26.47,39.37,30.78,32.24,25.71,29.19,36.54,33.35,36.86,22.47,34.92,33.35,34.53,35.35,24.75,33.3,26.52,27.16,29.1,33.34,31.91
+Pennsylvania,37.64,40.9,34.59,43.83,54.45,56.19,41.64,47.1,42.35,46.47,43.17,41.12,62.45,43.1,41.17,42.55,43.04,40.42,46.07,65.03,49.56,42,46.86,46.24,44.76,40.36
+Rhode Island,43.13,47.69,43.39,46.84,52.36,50.69,58.78,54.95,43.33,57.63,53.5,54.09,56.77,39.69,44.62,47.64,40.37,42.9,50.06,63.81,52.19,45.31,51,50.21,58.67,50.3
+South Carolina,44.57,37.46,36.19,44.81,55.2,46.1,48.78,44.1,34.12,44.94,53.43,38.15,38.53,44.06,57.06,47.44,59.93,48.3,44.51,58.08,46.55,60.41,46.98,47.03,50.68,49.9
+South Dakota,21.46,19.56,19.64,14.47,17.01,20.83,20.63,15.82,22.97,23.85,22.8,25,21.61,14.62,24.73,20.22,22.78,21.09,17.25,23.44,31.31,16.07,18.05,17.58,22.88,18.91
+Tennessee,40.87,45.15,56.94,54.67,62.99,62.21,46.76,46.62,37.05,50.93,60.97,47.53,64.29,50.65,57.33,53.64,59.11,48.52,54.53,70.37,67.87,62.32,61.52,55.18,48.83,50.04
+Texas,21.38,29.13,27.72,30.27,25.79,39.08,21.37,27.62,33.59,23.26,30.51,26.99,15.42,24.29,23.93,26.31,39.51,33.43,28.64,34.58,27.32,25.91,27.78,21.93,25.71,27.88
+Utah,12.8,13.13,11.1,9.01,11.73,17.43,15.27,13.59,12.42,11.11,12.26,16.04,15.29,10.73,12.81,13.64,15.91,15.38,10.93,12.23,16.2,7.21,13.12,13.9,13.55,11.69
+Vermont,40.51,46.38,35.36,46.72,49.01,43.65,53.96,53.2,47.73,55.01,47.17,48.99,58.88,41.27,47.8,45.76,41.27,39.53,47.26,48.63,49.17,39.56,40.88,46.73,53.16,43.58
+Virginia,40.98,39.35,35.6,41.82,61.65,50.08,39.84,46.29,33.42,42.14,52.51,39.14,48.98,43.74,48.11,43.65,50.1,46.44,40.27,64.38,46.03,60.99,42.23,44.1,44.09,41.95
+Washington,47.86,31.1,43.51,37.44,41.41,36.03,45.84,43.59,40.92,37.83,39.91,47.61,43.64,50.49,36.13,49.34,45.11,45.96,52.83,38.09,39.07,42.1,43.08,40.06,38.7,37.51
+West Virginia,35.39,43.2,40.35,47.89,60.32,53.73,41.79,43.22,42.3,47.61,45.89,41.1,55.94,45.94,45.43,42.95,48.82,47.55,45.32,65.85,48.03,52.9,44.66,47.98,41.44,40.03
+Wisconsin,32.29,34.19,34.38,34.94,28.47,35.76,28.29,29.6,33.88,32.03,30.02,39.04,31.15,29.47,35.97,36.48,36.19,40.58,36.74,39.97,44.46,33.69,29.55,33.49,29.6,36.01
+Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.46,10.78,16.51,17.77,16.96,18.07,17.9,16.12,18.46,11.38,14.47,15.47,18.13,13.38`;
+
+    // --- GLOBAL STATE & UTILS ---
+    let currentScene = 'map';
+    let currentDataType = 'temperature';
+    let currentState = null;
+    let tempUnit = 'F';
+    let usGeoData;
+    
+    // Tour state
+    let isTourActive = false;
+    let tourStep = 0;
+    let tourTimeout;
+
+    const temperatureDataByState = {};
+    const temperatureData = {};
+    const precipitationDataByState = {};
+    const precipitationData = {};
+    let headers;
+
+    const tourStops = [
+        { state: 'Florida', type: 'temperature', title: 'The Hottest State', text: `Florida has the highest average annual temperature in the continental US, coming in at 71.7°F.` },
+        { state: 'Alaska', type: 'temperature', title: 'The Coldest State', text: `Unsurprisingly, Alaska is the coldest state, with an average temperature of only 28.3°F.` },
+        { state: 'Hawaii', type: 'precipitation', title: 'The Wettest State', text: `Hawaii receives the most precipitation, with a staggering annual average of 63.7 inches.` },
+        { state: 'Nevada', type: 'precipitation', title: 'The Driest State', text: `Nevada is the driest state, receiving an average of only 9.5 inches of precipitation per year.` },
+        { state: null, type: 'end', title: 'Tour Complete!', text: `Now it's your turn. Use the controls to explore temperature and precipitation data. Click any state..` }
+    ];
+
+    function toCelsius(f) { return (f - 32) * 5 / 9; }
+    function convertTemp(value, targetUnit) { return targetUnit === 'C' ? toCelsius(value) : value; }
+
+    // --- DATA PARSING ---
+    function parseData() {
+        const tempRows = temperatureCsvData.split('\n');
+        headers = tempRows[0].split(',').slice(1, -1);
+        tempRows.slice(1).forEach(row => {
+            const parts = row.split(',');
+            const state = parts[0];
+            const avgTemp = Number(parts[parts.length - 1]);
+            if(state && !isNaN(avgTemp)) {
+                temperatureData[state] = avgTemp;
+                const yearTemps = parts.slice(1).map(Number);
+                temperatureDataByState[state] = Object.fromEntries(headers.map((year, i) => [year, yearTemps[i]]));
+            }
+        });
+
+        const precipRows = precipitationCsvData.split('\n');
+        precipRows.slice(1).forEach(row => {
+            const parts = row.split(',');
+            const state = parts[0];
+            const avgPrecip = Number(parts[parts.length - 1]);
+            if(state && !isNaN(avgPrecip)) {
+                precipitationData[state] = avgPrecip;
+                const yearPrecips = parts.slice(1).map(Number);
+                precipitationDataByState[state] = Object.fromEntries(headers.map((year, i) => [year, yearPrecips[i]]));
+            }
+        });
+    }
+
+    // --- SCENE & VIEW MANAGEMENT ---
+    function renderScene(scene, state = null) {
+      d3.selectAll(".tooltip").remove(); // Clean up tooltips on any scene change
+      currentScene = scene;
+      currentState = state || null;
+      const container = d3.select("#container");
+      container.html("");
+      d3.select("#legend-container").html("");
+      
+      d3.select("#slider-label-center").style("display", "none");
+      d3.select("#main-slider").style("display", scene === 'map' ? "flex" : "block");
+
+      let titleText = '';
+      if (scene === 'map') {
+        d3.select("#tour-controls").style("display", "block");
+        currentDataType = 'temperature';
+        d3.select("#data-slider").property('value', 0);
+        titleText = `US Average Annual Temperature`;
+        renderMap();
+      } else if (scene === 'details') { // 'details'
+        d3.select("#tour-controls").style("display", "none");
+        if (currentDataType === 'both') {
+          titleText = `${state} - Annual Temp & Precip (2000-2025)`;
+        } else {
+          let detailType = currentDataType.charAt(0).toUpperCase() + currentDataType.slice(1);
+          titleText = `${state} - Annual ${detailType} (2000-2025)`;
+        }
+        renderDetails(state);
+      }
+      d3.select("#title").text(titleText);
+      d3.select("#unit-toggle").style("display", currentDataType.includes('temp') ? 'block' : 'none');
+    }
+
+    // --- MAP RENDERING (Exploration Mode) ---
+    function renderMap() {
+      const container = d3.select("#container");
+      container.html("");
+      const svg = container.append("svg").attr("width", MAP_WIDTH).attr("height", MAP_HEIGHT);
+      
+      // Ensure only one tooltip exists using the .join pattern
+      d3.select("body").selectAll(".tooltip.map-tooltip").data([0]).join("div").attr("class", "tooltip map-tooltip");
+      const tooltip = d3.select(".tooltip.map-tooltip");
+
+      const projection = d3.geoAlbersUsa().fitSize([MAP_WIDTH, MAP_HEIGHT], topojson.feature(usGeoData, usGeoData.objects.states));
+      const path = d3.geoPath().projection(projection);
+
+      const states = topojson.feature(usGeoData, usGeoData.objects.states).features;
+
+      svg.append("g")
+        .selectAll("path")
+        .data(states)
+        .join("path")
+        .attr("class", "state interactive")
+        .attr("d", path)
+        .on("mouseover", function(event, d) {
+          d3.select(this).style("opacity", 0.7);
+          tooltip.style("opacity", 1);
+        })
+        .on("mousemove", function(event, d) {
+          const pos = d3.pointer(event, document.body);
+          const data = currentDataType === 'temperature' ? temperatureData : precipitationData;
+          const value = data[d.properties.name];
+          let valueText = 'No data';
+          if (value != null) {
+              const displayValue = (currentDataType === 'temperature') ? convertTemp(value, tempUnit) : value;
+              const unit = (currentDataType === 'temperature') ? `°${tempUnit}` : ' in';
+              valueText = `${displayValue.toFixed(1)}${unit}`;
+          }
+          let typeLabel = currentDataType.charAt(0).toUpperCase() + currentDataType.slice(1);
+          tooltip.html(`<strong>${d.properties.name}</strong><br/>${typeLabel}: ${valueText}`)
+                 .style("left", `${pos[0]}px`).style("top", `${pos[1]}px`);
+        })
+        .on("mouseout", function() {
+          d3.select(this).style("opacity", 1);
+          tooltip.style("opacity", 0);
+        })
+        .on("click", (event, d) => {
+            renderScene('details', d.properties.name)
+        });
+      
+      updateMapColorsAndLegend();
+    }
+    
+    // --- DETAILS/CHART RENDERING ---
+    function renderDetails(state) {
+      currentScene = 'details';
+      const container = d3.select("#container");
+
+      if (!temperatureDataByState[state] || !precipitationDataByState[state]) {
+        container.html(`<p class="error-message">Data not available for ${state || 'Unknown'}.</p>`);
+        container.append("button").attr("class", "back-button").text("Back to Map").on("click", () => renderScene('map'));
+        return;
+      }
+
+      const svg = container.append("svg").attr("class", "chart").attr("width", CHART_WIDTH).attr("height", CHART_HEIGHT);
+      const tooltip = container.append("div").attr("class", "tooltip chart-tooltip").attr("id", "tooltip");
+      const controlsDiv = container.append('div').attr('class', 'controls-container');
+      controlsDiv.append("button").attr("class", "back-button").text("Back to Map").on("click", () => renderScene('map'));
+
+      const margin = { top: 30, right: 60, bottom: 70, left: 60 };
+      const innerWidth = CHART_WIDTH - margin.left - margin.right;
+      const innerHeight = CHART_HEIGHT - margin.top - margin.bottom;
+
+      const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+      const years = headers;
+      const xScale = d3.scaleBand().domain(years).range([0, innerWidth]).padding(0.2);
+      
+      g.append("g").attr("transform", `translate(0,${innerHeight})`).call(d3.axisBottom(xScale))
+        .selectAll("text").style("text-anchor", "end").attr("dx", "-.8em").attr("dy", ".15em").attr("transform", "rotate(-65)");
+      g.append("text").attr("x", innerWidth / 2).attr("y", innerHeight + 65).attr("text-anchor", "middle").text("Year");
+
+      if (currentDataType === 'both') {
+        const tempData = years.map(year => ({ year, value: convertTemp(temperatureDataByState[state][year], tempUnit) }));
+        const precipData = years.map(year => ({ year, value: precipitationDataByState[state][year] }));
+        
+        const tempDomain = tempUnit === 'F' ? [0, 90] : [toCelsius(0), toCelsius(90)];
+        const yTempScale = d3.scaleLinear().domain(tempDomain).range([innerHeight, 0]);
+
+        const yPrecipScale = d3.scaleLinear().domain([0, d3.max(precipData, d => d.value) * 1.1]).nice().range([innerHeight, 0]);
+        
+        g.append("g").call(d3.axisLeft(yTempScale).ticks(10).tickFormat(d => `${Math.round(d)}°${tempUnit}`));
+        g.append("g").attr("transform", `translate(${innerWidth}, 0)`).call(d3.axisRight(yPrecipScale).ticks(5).tickFormat(d => `${d} in`));
+        const tempLine = d3.line().x(d => xScale(d.year) + xScale.bandwidth() / 2).y(d => yTempScale(d.value));
+        g.append("path").datum(tempData).attr("class", "line temperature").attr("d", tempLine);
+        g.selectAll(".dot-temp").data(tempData).join("circle").attr("class", "dot temperature").attr("cx", d => xScale(d.year) + xScale.bandwidth() / 2).attr("cy", d => yTempScale(d.value)).attr("r", 4)
+            .on("mouseover", (e,d) => { tooltip.style("opacity", 1); }).on("mousemove", (e,d) => { const pos = d3.pointer(e, container.node()); tooltip.html(`<b>Temp (${d.year})</b><br/>${d.value.toFixed(1)}°${tempUnit}`).style("left", `${pos[0]+20}px`).style("top", `${pos[1]-20}px`); }).on("mouseout", () => { tooltip.style("opacity", 0); });
+        const precipLine = d3.line().x(d => xScale(d.year) + xScale.bandwidth() / 2).y(d => yPrecipScale(d.value));
+        g.append("path").datum(precipData).attr("class", "line precipitation").attr("d", precipLine);
+        g.selectAll(".dot-precip").data(precipData).join("circle").attr("class", "dot precipitation").attr("cx", d => xScale(d.year) + xScale.bandwidth() / 2).attr("cy", d => yPrecipScale(d.value)).attr("r", 4)
+            .on("mouseover", (e,d) => { tooltip.style("opacity", 1); }).on("mousemove", (e,d) => { const pos = d3.pointer(e, container.node()); tooltip.html(`<b>Precip (${d.year})</b><br/>${d.value.toFixed(1)} in`).style("left", `${pos[0]+20}px`).style("top", `${pos[1]-20}px`); }).on("mouseout", () => { tooltip.style("opacity", 0); });
+        g.append("text").attr("x", -innerHeight / 2).attr("y", -45).attr("transform", "rotate(-90)").attr("text-anchor", "middle").text(`Temperature (°${tempUnit})`);
+        g.append("text").attr("transform", `translate(${innerWidth + 45}, ${innerHeight / 2}) rotate(90)`).style("text-anchor", "middle").text("Precipitation (in)");
+      } else {
+        const isTemp = currentDataType === 'temperature';
+        const rawData = isTemp ? temperatureDataByState[state] : precipitationDataByState[state];
+        const chartData = years.map(year => ({ year, value: isTemp ? convertTemp(rawData[year], tempUnit) : rawData[year] }));
+        
+        const yMax = d3.max(chartData, d => d.value);
+        const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([innerHeight, 0]);
+        const unitLabel = isTemp ? `°${tempUnit}` : ' in';
+        
+        const defs = svg.append("defs");
+        const tempGradient = defs.append("linearGradient").attr("id", "temperature-gradient").attr("x1", "0%").attr("y1", "100%").attr("x2", "0%").attr("y2", "0%");
+        tempGradient.append("stop").attr("offset", "0%").attr("stop-color", "#ef4444");
+        tempGradient.append("stop").attr("offset", "100%").attr("stop-color", "#fca5a5");
+        const precipGradient = defs.append("linearGradient").attr("id", "precipitation-gradient").attr("x1", "0%").attr("y1", "100%").attr("x2", "0%").attr("y2", "0%");
+        precipGradient.append("stop").attr("offset", "0%").attr("stop-color", "#3b82f6");
+        precipGradient.append("stop").attr("offset", "100%").attr("stop-color", "#93c5fd");
+
+        g.append("g").call(d3.axisLeft(yScale).ticks(5).tickFormat(d => `${Math.round(d)}${unitLabel}`));
+
+        g.selectAll(".bar")
+            .data(chartData)
+            .join("rect")
+            .attr("class", `bar ${currentDataType}`)
+            .attr("x", d => xScale(d.year))
+            .attr("y", innerHeight)
+            .attr("width", xScale.bandwidth())
+            .attr("height", 0)
+            .on("mouseover", function(e, d) {
+                d3.select(this).style("fill", isTemp ? "#b91c1c" : "#1e40af");
+                tooltip.style("opacity", 1);
+            })
+            .on("mousemove", (e, d) => {
+                const pos = d3.pointer(e, container.node());
+                tooltip.html(`<b>${d.year}</b><br/>${d.value.toFixed(1)}${unitLabel}`)
+                       .style("left", `${pos[0] + 20}px`)
+                       .style("top", `${pos[1] - 20}px`);
+            })
+            .on("mouseout", function(e, d) {
+                d3.select(this).style("fill", null);
+                tooltip.style("opacity", 0);
+            })
+            .transition()
+            .duration(800)
+            .delay((d, i) => i * 20)
+            .ease(d3.easeCubicOut)
+            .attr("y", d => yScale(d.value))
+            .attr("height", d => innerHeight - yScale(d.value));
+
+        g.append("text").attr("x", -innerHeight / 2).attr("y", -45).attr("transform", "rotate(-90)").attr("text-anchor", "middle").text(`${currentDataType.charAt(0).toUpperCase() + currentDataType.slice(1)} (${unitLabel})`);
+      }
+    }
+
+    // --- COLOR & LEGEND HELPERS ---
+    function updateMapColorsAndLegend() {
+        let data, colorScale;
+        if (currentDataType === 'temperature') {
+            const displayTemps = Object.values(temperatureData).map(t => convertTemp(t, tempUnit));
+            colorScale = d3.scaleSequential(d3.interpolateTurbo).domain(d3.extent(displayTemps));
+            data = temperatureData;
+        } else {
+            colorScale = d3.scaleSequential(d3.interpolateBlues).domain(d3.extent(Object.values(precipitationData)));
+            data = precipitationData;
+        }
+
+        d3.selectAll('.state')
+          .transition().duration(500)
+          .attr("fill", d => {
+            const originalValue = data[d.properties.name];
+            if (originalValue == null) return "#ccc";
+            const displayValue = currentDataType === 'temperature' ? convertTemp(originalValue, tempUnit) : originalValue;
+            return colorScale(displayValue);
+          });
+          
+        renderLegend(colorScale);
+    }
+
+    function renderLegend(colorScale) {
+        d3.select("#legend-container").html("");
+        const legendWidth = 300, legendHeight = 20;
+        const legendSvg = d3.select("#legend-container").append("svg").attr("width", legendWidth + 40).attr("height", legendHeight + 40);
+        const defs = legendSvg.append("defs");
+        const linearGradient = defs.append("linearGradient").attr("id", "linear-gradient");
+        linearGradient.selectAll("stop")
+            .data(colorScale.ticks().map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: colorScale(t) })))
+            .join("stop").attr("offset", d => d.offset).attr("stop-color", d => d.color);
+        legendSvg.append("rect").attr("x", 20).attr("y", 10).attr("width", legendWidth).attr("height", legendHeight).style("fill", "url(#linear-gradient)");
+        const legendScale = d3.scaleLinear().domain(colorScale.domain()).range([0, legendWidth]);
+        const unit = (currentDataType === 'temperature') ? `°${tempUnit}` : ' in';
+        const legendAxis = d3.axisBottom(legendScale).ticks(5).tickFormat(d => `${Math.round(d)}${unit}`);
+        legendSvg.append("g").attr("transform", `translate(20, 30)`).call(legendAxis).select(".domain").remove();
+    }
+    
+    // --- GUIDED TOUR LOGIC ---
+    function startTour() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        d3.select("#tour-controls").style("display", "none");
+        
+        isTourActive = true;
+        tourStep = 0;
+        
+        d3.select("#main-slider, #unit-toggle").style("display", "none");
+        d3.select(".visualization-wrapper").style("pointer-events", "none");
+        d3.selectAll('.tooltip').remove();
+        runTourStep();
+    }
+
+    function runTourStep() {
+        if (tourStep >= tourStops.length) {
+            endTour();
+            return;
+        }
+        const stop = tourStops[tourStep];
+        
+        if(stop.type !== 'end') {
+          currentDataType = stop.type;
+          updateMapColorsAndLegend();
+        }
+
+        d3.selectAll('.state')
+            .classed('highlighted', d => d.properties.name === stop.state)
+            .classed('faded', d => stop.state && d.properties.name !== stop.state);
+
+        const storyBox = d3.select("#story-box");
+        storyBox.classed('visible', true)
+            .select("h3").text(stop.title);
+        storyBox.select("p").text(stop.text);
+        d3.select("#title").text(stop.title);
+        
+        tourStep++;
+        tourTimeout = setTimeout(runTourStep, 4000);
+    }
+    
+    function endTour() {
+        clearTimeout(tourTimeout);
+        isTourActive = false;
+        
+        d3.select("#story-box").classed('visible', false);
+        d3.select("#main-slider").style("display", "flex");
+        d3.selectAll('.state').classed('highlighted', false).classed('faded', false);
+        d3.select(".visualization-wrapper").style("pointer-events", "auto");
+        
+        renderScene('map');
+    }
+    
+    // --- INITIALIZATION & EVENT LISTENERS ---
+    function initializeApp() {
+        const container = d3.select("#container");
+        container.html("");
+        const svg = container.append("svg").attr("width", MAP_WIDTH).attr("height", MAP_HEIGHT);
+        
+        const projection = d3.geoAlbersUsa().fitSize([MAP_WIDTH, MAP_HEIGHT], topojson.feature(usGeoData, usGeoData.objects.states));
+        const path = d3.geoPath().projection(projection);
+        
+        svg.append("g")
+           .selectAll("path")
+           .data(topojson.feature(usGeoData, usGeoData.objects.states).features)
+           .join("path")
+           .attr("class", "state")
+           .attr("d", path)
+           .attr("fill", "#e5e7eb");
+        
+        d3.select("#start-tour-button").on("click", startTour);
+    }
+
+    d3.select("#data-slider").on("input", function() {
+        if (currentScene === 'map') {
+            currentDataType = this.value === "0" ? "temperature" : "precipitation";
+            let mapType = currentDataType.charAt(0).toUpperCase() + currentDataType.slice(1);
+            d3.select("#title").text(`US Average Annual ${mapType}`);
+            d3.select("#unit-toggle").style("display", currentDataType === 'temperature' ? 'block' : 'none');
+            d3.select("#slider-label-center").style("display", "none");
+            updateMapColorsAndLegend();
+        } else { // details view
+             const value = this.value;
+             const bothLabel = d3.select("#slider-label-center");
+             if (value === "0") { currentDataType = "temperature"; bothLabel.style("font-weight", "400"); }
+             else if (value === "1") { currentDataType = "both"; bothLabel.style("font-weight", "700"); }
+             else { currentDataType = "precipitation"; bothLabel.style("font-weight", "400"); }
+             renderScene('details', currentState);
+             d3.select("#slider-label-center").style("display", "block");
+        }
+    });
+
+    d3.select("#unit-toggle").on("click", function() {
+        tempUnit = tempUnit === 'F' ? 'C' : 'F';
+        d3.select(this).text(`Switch to °${tempUnit === 'F' ? 'C' : 'F'}`);
+        if(isTourActive) return;
+        
+        if (currentScene === 'map') {
+            updateMapColorsAndLegend();
+        } else {
+            renderScene(currentScene, currentState);
+        }
+    });
+
+    // --- MAIN EXECUTION ---
+    parseData();
+    d3.json("https://unpkg.com/us-atlas@3/states-10m.json").then(us => {
+        usGeoData = us;
+        initializeApp();
+    }).catch(err => {
+        console.error("Error loading map data:", err);
+        d3.select(".visualization-wrapper").html(`<p class="error-message">Error loading map data. Please check the console.</p>`);
+    });
+
+  </script>
+</body>
+</html>
