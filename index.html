@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>US Environmental Data Story</title>
+  <title>US Weather</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://unpkg.com/topojson-client@3"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
@@ -421,9 +421,8 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
         });
     }
 
-    // --- SCENE & VIEW MANAGEMENT ---
     function renderScene(scene, state = null) {
-      d3.selectAll(".tooltip").remove(); // Clean up tooltips on any scene change
+      d3.selectAll(".tooltip").remove(); 
       currentScene = scene;
       currentState = state || null;
       const container = d3.select("#container");
@@ -454,7 +453,6 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
       d3.select("#unit-toggle").style("display", currentDataType.includes('temp') ? 'block' : 'none');
     }
 
-    // --- MAP RENDERING (Exploration Mode) ---
     function renderMap() {
       const container = d3.select("#container");
       container.html("");
@@ -504,7 +502,6 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
       updateMapColorsAndLegend();
     }
     
-    // --- DETAILS/CHART RENDERING ---
     function renderDetails(state) {
       currentScene = 'details';
       const container = d3.select("#container");
@@ -605,7 +602,6 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
       }
     }
 
-    // --- COLOR & LEGEND HELPERS ---
     function updateMapColorsAndLegend() {
         let data, colorScale;
         if (currentDataType === 'temperature') {
@@ -645,7 +641,6 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
         legendSvg.append("g").attr("transform", `translate(20, 30)`).call(legendAxis).select(".domain").remove();
     }
     
-    // --- GUIDED TOUR LOGIC ---
     function startTour() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         d3.select("#tour-controls").style("display", "none");
@@ -697,7 +692,6 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
         renderScene('map');
     }
     
-    // --- INITIALIZATION & EVENT LISTENERS ---
     function initializeApp() {
         const container = d3.select("#container");
         container.html("");
@@ -748,7 +742,6 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
         }
     });
 
-    // --- MAIN EXECUTION ---
     parseData();
     d3.json("https://unpkg.com/us-atlas@3/states-10m.json").then(us => {
         usGeoData = us;
