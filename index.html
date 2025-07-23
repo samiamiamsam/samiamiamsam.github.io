@@ -364,14 +364,12 @@ West Virginia,35.39,43.2,40.35,47.89,60.32,53.73,41.79,43.22,42.3,47.61,45.89,41
 Wisconsin,32.29,34.19,34.38,34.94,28.47,35.76,28.29,29.6,33.88,32.03,30.02,39.04,31.15,29.47,35.97,36.48,36.19,40.58,36.74,39.97,44.46,33.69,29.55,33.49,29.6,36.01
 Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.46,10.78,16.51,17.77,16.96,18.07,17.9,16.12,18.46,11.38,14.47,15.47,18.13,13.38`;
 
-    // --- GLOBAL STATE & UTILS ---
     let currentScene = 'map';
     let currentDataType = 'temperature';
     let currentState = null;
     let tempUnit = 'F';
     let usGeoData;
     
-    // Tour state
     let isTourActive = false;
     let tourStep = 0;
     let tourTimeout;
@@ -393,7 +391,6 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
     function toCelsius(f) { return (f - 32) * 5 / 9; }
     function convertTemp(value, targetUnit) { return targetUnit === 'C' ? toCelsius(value) : value; }
 
-    // --- DATA PARSING ---
     function parseData() {
         const tempRows = temperatureCsvData.split('\n');
         headers = tempRows[0].split(',').slice(1, -1);
@@ -429,8 +426,11 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
       container.html("");
       d3.select("#legend-container").html("");
       
-      d3.select("#slider-label-center").style("display", "none");
-      d3.select("#main-slider").style("display", scene === 'map' ? "flex" : "block");
+      d3.select("#slider-label-center")
+        .style("display", "none");
+
+      d3.select("#main-slider")
+        .style("display", scene === 'map' ? "flex" : "block");
 
       let titleText = '';
       if (scene === 'map') {
@@ -450,20 +450,31 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
         renderDetails(state);
       }
       d3.select("#title").text(titleText);
-      d3.select("#unit-toggle").style("display", currentDataType.includes('temp') ? 'block' : 'none');
+
+      d3.select("#unit-toggle")
+        .style("display", currentDataType.includes('temp') ? 'block' : 'none');
     }
 
     function renderMap() {
       const container = d3.select("#container");
       container.html("");
-      const svg = container.append("svg").attr("width", MAP_WIDTH).attr("height", MAP_HEIGHT);
+      const svg = container.append("svg")
+                           .attr("width", MAP_WIDTH)
+                           .attr("height", MAP_HEIGHT);
       
-      // Ensure only one tooltip exists using the .join pattern
-      d3.select("body").selectAll(".tooltip.map-tooltip").data([0]).join("div").attr("class", "tooltip map-tooltip");
+      d3.select("body")
+        .selectAll(".tooltip.map-tooltip")
+        .data([0])
+        .join("div")
+        .attr("class", "tooltip map-tooltip");
+
       const tooltip = d3.select(".tooltip.map-tooltip");
 
-      const projection = d3.geoAlbersUsa().fitSize([MAP_WIDTH, MAP_HEIGHT], topojson.feature(usGeoData, usGeoData.objects.states));
-      const path = d3.geoPath().projection(projection);
+      const projection = d3.geoAlbersUsa()
+                           .fitSize([MAP_WIDTH, MAP_HEIGHT], topojson.feature(usGeoData, usGeoData.objects.states));
+
+      const path = d3.geoPath()
+                     .projection(projection);
 
       const states = topojson.feature(usGeoData, usGeoData.objects.states).features;
 
@@ -488,6 +499,7 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
               valueText = `${displayValue.toFixed(1)}${unit}`;
           }
           let typeLabel = currentDataType.charAt(0).toUpperCase() + currentDataType.slice(1);
+
           tooltip.html(`<strong>${d.properties.name}</strong><br/>${typeLabel}: ${valueText}`)
                  .style("left", `${pos[0]}px`).style("top", `${pos[1]}px`);
         })
@@ -508,66 +520,162 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
 
       if (!temperatureDataByState[state] || !precipitationDataByState[state]) {
         container.html(`<p class="error-message">Data not available for ${state || 'Unknown'}.</p>`);
-        container.append("button").attr("class", "back-button").text("Back to Map").on("click", () => renderScene('map'));
+        container.append("button")
+                 .attr("class", "back-button")
+                 .text("Back to Map").on("click", () => renderScene('map'));
+
         return;
       }
 
-      const svg = container.append("svg").attr("class", "chart").attr("width", CHART_WIDTH).attr("height", CHART_HEIGHT);
-      const tooltip = container.append("div").attr("class", "tooltip chart-tooltip").attr("id", "tooltip");
-      const controlsDiv = container.append('div').attr('class', 'controls-container');
-      controlsDiv.append("button").attr("class", "back-button").text("Back to Map").on("click", () => renderScene('map'));
+      const svg = container.append("svg")
+                           .attr("class", "chart")
+                           .attr("width", CHART_WIDTH)
+                           .attr("height", CHART_HEIGHT);
+
+      const tooltip = container.append("div")
+                               .attr("class", "tooltip chart-tooltip")
+                               .attr("id", "tooltip");
+
+      const controlsDiv = container.append('div')
+                                   .attr('class', 'controls-container');
+
+      controlsDiv.append("button")
+                 .attr("class", "back-button")
+                 .text("Back to Map").on("click", () => renderScene('map'));
 
       const margin = { top: 30, right: 60, bottom: 70, left: 60 };
       const innerWidth = CHART_WIDTH - margin.left - margin.right;
       const innerHeight = CHART_HEIGHT - margin.top - margin.bottom;
 
-      const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+      const g = svg.append("g")
+                   .attr("width", CHART_WIDTH)
+                   .attr("height", CHART_HEIGHT)        
+                   .attr("transform", `translate(${margin.left},${margin.top})`);
+
       const years = headers;
-      const xScale = d3.scaleBand().domain(years).range([0, innerWidth]).padding(0.2);
+      const xScale = d3.scaleBand()
+                       .domain(years)
+                       .range([0, innerWidth]).padding(0.2);
       
-      g.append("g").attr("transform", `translate(0,${innerHeight})`).call(d3.axisBottom(xScale))
-        .selectAll("text").style("text-anchor", "end").attr("dx", "-.8em").attr("dy", ".15em").attr("transform", "rotate(-65)");
-      g.append("text").attr("x", innerWidth / 2).attr("y", innerHeight + 65).attr("text-anchor", "middle").text("Year");
+      g.append("g").attr("transform", `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(xScale))
+        .selectAll("text").style("text-anchor", "end")
+        .attr("dx", "-.8em").attr("dy", ".15em")
+        .attr("transform", "rotate(-65)");
+
+      g.append("text")
+        .attr("x", innerWidth / 2)
+        .attr("y", innerHeight + 65)
+        .attr("text-anchor", "middle")
+        .text("Year");
 
       if (currentDataType === 'both') {
         const tempData = years.map(year => ({ year, value: convertTemp(temperatureDataByState[state][year], tempUnit) }));
         const precipData = years.map(year => ({ year, value: precipitationDataByState[state][year] }));
         
         const tempDomain = tempUnit === 'F' ? [0, 90] : [toCelsius(0), toCelsius(90)];
-        const yTempScale = d3.scaleLinear().domain(tempDomain).range([innerHeight, 0]);
+        const yTempScale = d3.scaleLinear()
+                             .domain(tempDomain)
+                             .range([innerHeight, 0]);
 
-        const yPrecipScale = d3.scaleLinear().domain([0, d3.max(precipData, d => d.value) * 1.1]).nice().range([innerHeight, 0]);
+        const yPrecipScale = d3.scaleLinear()
+                               .domain([0, d3.max(precipData, d => d.value) * 1.1]).nice().range([innerHeight, 0]);
         
-        g.append("g").call(d3.axisLeft(yTempScale).ticks(10).tickFormat(d => `${Math.round(d)}°${tempUnit}`));
-        g.append("g").attr("transform", `translate(${innerWidth}, 0)`).call(d3.axisRight(yPrecipScale).ticks(5).tickFormat(d => `${d} in`));
+        g.append("g")
+         .call(d3.axisLeft(yTempScale).ticks(10).tickFormat(d => `${Math.round(d)}°${tempUnit}`));
+
+        g.append("g")
+        .attr("transform", `translate(${innerWidth}, 0)`)
+        .call(d3.axisRight(yPrecipScale).ticks(5).tickFormat(d => `${d} in`));
+        
         const tempLine = d3.line().x(d => xScale(d.year) + xScale.bandwidth() / 2).y(d => yTempScale(d.value));
-        g.append("path").datum(tempData).attr("class", "line temperature").attr("d", tempLine);
-        g.selectAll(".dot-temp").data(tempData).join("circle").attr("class", "dot temperature").attr("cx", d => xScale(d.year) + xScale.bandwidth() / 2).attr("cy", d => yTempScale(d.value)).attr("r", 4)
-            .on("mouseover", (e,d) => { tooltip.style("opacity", 1); }).on("mousemove", (e,d) => { const pos = d3.pointer(e, container.node()); tooltip.html(`<b>Temp (${d.year})</b><br/>${d.value.toFixed(1)}°${tempUnit}`).style("left", `${pos[0]+20}px`).style("top", `${pos[1]-20}px`); }).on("mouseout", () => { tooltip.style("opacity", 0); });
+
+        g.append("path")
+          .datum(tempData).attr("class", "line temperature").attr("d", tempLine);
+
+        g.selectAll(".dot-temp")
+          .data(tempData)
+          .join("circle")
+          .attr("class", "dot temperature")
+          .attr("cx", d => xScale(d.year) + xScale.bandwidth() / 2)
+          .attr("cy", d => yTempScale(d.value)).attr("r", 4)
+            .on("mouseover", (e,d) => { tooltip.style("opacity", 1); })
+            .on("mousemove", (e,d) => { const pos = d3.pointer(e, container.node()); tooltip.html(`<b>Temp (${d.year})</b><br/>${d.value.toFixed(1)}°${tempUnit}`).style("left", `${pos[0]+20}px`).style("top", `${pos[1]-20}px`); }).on("mouseout", () => { tooltip.style("opacity", 0); }); //Tooltip
+
         const precipLine = d3.line().x(d => xScale(d.year) + xScale.bandwidth() / 2).y(d => yPrecipScale(d.value));
-        g.append("path").datum(precipData).attr("class", "line precipitation").attr("d", precipLine);
-        g.selectAll(".dot-precip").data(precipData).join("circle").attr("class", "dot precipitation").attr("cx", d => xScale(d.year) + xScale.bandwidth() / 2).attr("cy", d => yPrecipScale(d.value)).attr("r", 4)
-            .on("mouseover", (e,d) => { tooltip.style("opacity", 1); }).on("mousemove", (e,d) => { const pos = d3.pointer(e, container.node()); tooltip.html(`<b>Precip (${d.year})</b><br/>${d.value.toFixed(1)} in`).style("left", `${pos[0]+20}px`).style("top", `${pos[1]-20}px`); }).on("mouseout", () => { tooltip.style("opacity", 0); });
-        g.append("text").attr("x", -innerHeight / 2).attr("y", -45).attr("transform", "rotate(-90)").attr("text-anchor", "middle").text(`Temperature (°${tempUnit})`);
-        g.append("text").attr("transform", `translate(${innerWidth + 45}, ${innerHeight / 2}) rotate(90)`).style("text-anchor", "middle").text("Precipitation (in)");
+
+        g.append("path")
+         .datum(precipData)
+         .attr("class", "line precipitation")
+         .attr("d", precipLine);
+
+        g.selectAll(".dot-precip")
+          .data(precipData)
+          .join("circle").attr("class", "dot precipitation")
+          .attr("cx", d => xScale(d.year) + xScale.bandwidth() / 2)
+          .attr("cy", d => yPrecipScale(d.value)).attr("r", 4)
+            .on("mouseover", (e,d) => { tooltip.style("opacity", 1); })
+            .on("mousemove", (e,d) => { const pos = d3.pointer(e, container.node()); tooltip.html(`<b>Precip (${d.year})</b><br/>${d.value.toFixed(1)} in`).style("left", `${pos[0]+20}px`).style("top", `${pos[1]-20}px`); }).on("mouseout", () => { tooltip.style("opacity", 0); }); //Tooltip
+
+        g.append("text")
+          .attr("x", -innerHeight / 2)
+          .attr("y", -45)
+          .attr("transform", "rotate(-90)")
+          .attr("text-anchor", "middle")
+          .text(`Temperature (°${tempUnit})`);
+
+        g.append("text")
+          .attr("transform", `translate(${innerWidth + 45}, ${innerHeight / 2}) rotate(90)`)
+          .style("text-anchor", "middle")
+          .text("Precipitation (in)");
+
       } else {
         const isTemp = currentDataType === 'temperature';
         const rawData = isTemp ? temperatureDataByState[state] : precipitationDataByState[state];
         const chartData = years.map(year => ({ year, value: isTemp ? convertTemp(rawData[year], tempUnit) : rawData[year] }));
         
         const yMax = d3.max(chartData, d => d.value);
-        const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([innerHeight, 0]);
+        const yScale = d3.scaleLinear()
+                         .domain([0, yMax])
+                         .nice()
+                         .range([innerHeight, 0]);
+
         const unitLabel = isTemp ? `°${tempUnit}` : ' in';
         
         const defs = svg.append("defs");
-        const tempGradient = defs.append("linearGradient").attr("id", "temperature-gradient").attr("x1", "0%").attr("y1", "100%").attr("x2", "0%").attr("y2", "0%");
-        tempGradient.append("stop").attr("offset", "0%").attr("stop-color", "#ef4444");
-        tempGradient.append("stop").attr("offset", "100%").attr("stop-color", "#fca5a5");
-        const precipGradient = defs.append("linearGradient").attr("id", "precipitation-gradient").attr("x1", "0%").attr("y1", "100%").attr("x2", "0%").attr("y2", "0%");
-        precipGradient.append("stop").attr("offset", "0%").attr("stop-color", "#3b82f6");
-        precipGradient.append("stop").attr("offset", "100%").attr("stop-color", "#93c5fd");
 
-        g.append("g").call(d3.axisLeft(yScale).ticks(5).tickFormat(d => `${Math.round(d)}${unitLabel}`));
+        const tempGradient = defs.append("linearGradient")
+                                 .attr("id", "temperature-gradient")
+                                 .attr("x1", "0%")
+                                 .attr("y1", "100%")
+                                 .attr("x2", "0%")
+                                 .attr("y2", "0%");
+        
+        tempGradient.append("stop")
+                    .attr("offset", "0%")
+                    .attr("stop-color", "#ef4444");
+
+        tempGradient.append("stop")
+                    .attr("offset", "100%")
+                    .attr("stop-color", "#fca5a5");
+
+        const precipGradient = defs.append("linearGradient")
+                                   .attr("id", "precipitation-gradient")
+                                   .attr("x1", "0%")
+                                   .attr("y1", "100%")
+                                   .attr("x2", "0%")
+                                   .attr("y2", "0%");
+       
+        precipGradient.append("stop")
+                      .attr("offset", "0%")
+                      .attr("stop-color", "#3b82f6");
+
+        precipGradient.append("stop")
+                      .attr("offset", "100%")
+                      .attr("stop-color", "#93c5fd");
+
+        g.append("g")
+         .call(d3.axisLeft(yScale).ticks(5).tickFormat(d => `${Math.round(d)}${unitLabel}`));
 
         g.selectAll(".bar")
             .data(chartData)
@@ -598,7 +706,12 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
             .attr("y", d => yScale(d.value))
             .attr("height", d => innerHeight - yScale(d.value));
 
-        g.append("text").attr("x", -innerHeight / 2).attr("y", -45).attr("transform", "rotate(-90)").attr("text-anchor", "middle").text(`${currentDataType.charAt(0).toUpperCase() + currentDataType.slice(1)} (${unitLabel})`);
+        g.append("text")
+         .attr("x", -innerHeight / 2)
+         .attr("y", -45)
+         .attr("transform", "rotate(-90)")
+         .attr("text-anchor", "middle")
+         .text(`${currentDataType.charAt(0).toUpperCase() + currentDataType.slice(1)} (${unitLabel})`);
       }
     }
 
@@ -627,18 +740,36 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
 
     function renderLegend(colorScale) {
         d3.select("#legend-container").html("");
+
         const legendWidth = 300, legendHeight = 20;
-        const legendSvg = d3.select("#legend-container").append("svg").attr("width", legendWidth + 40).attr("height", legendHeight + 40);
+
+        const legendSvg = d3.select("#legend-container").append("svg")
+          .attr("width", legendWidth + 40).attr("height", legendHeight + 40);
+
         const defs = legendSvg.append("defs");
         const linearGradient = defs.append("linearGradient").attr("id", "linear-gradient");
+
         linearGradient.selectAll("stop")
             .data(colorScale.ticks().map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: colorScale(t) })))
             .join("stop").attr("offset", d => d.offset).attr("stop-color", d => d.color);
-        legendSvg.append("rect").attr("x", 20).attr("y", 10).attr("width", legendWidth).attr("height", legendHeight).style("fill", "url(#linear-gradient)");
-        const legendScale = d3.scaleLinear().domain(colorScale.domain()).range([0, legendWidth]);
+
+        legendSvg.append("rect")
+            .attr("x", 20)
+            .attr("y", 10)
+            .attr("width", legendWidth)
+            .attr("height", legendHeight)
+            .style("fill", "url(#linear-gradient)");
+
+        const legendScale = d3.scaleLinear()
+                              .domain(colorScale.domain()).range([0, legendWidth]);
+
         const unit = (currentDataType === 'temperature') ? `°${tempUnit}` : ' in';
         const legendAxis = d3.axisBottom(legendScale).ticks(5).tickFormat(d => `${Math.round(d)}${unit}`);
-        legendSvg.append("g").attr("transform", `translate(20, 30)`).call(legendAxis).select(".domain").remove();
+        
+        legendSvg.append("g")
+            .attr("transform", `translate(20, 30)`)
+            .call(legendAxis)
+            .select(".domain").remove();
     }
     
     function startTour() {
@@ -648,8 +779,12 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
         isTourActive = true;
         tourStep = 0;
         
-        d3.select("#main-slider, #unit-toggle").style("display", "none");
-        d3.select(".visualization-wrapper").style("pointer-events", "none");
+        d3.select("#main-slider, #unit-toggle")
+          .style("display", "none");
+
+        d3.select(".visualization-wrapper")
+          .style("pointer-events", "none");
+
         d3.selectAll('.tooltip').remove();
         runTourStep();
     }
@@ -667,14 +802,20 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
         }
 
         d3.selectAll('.state')
-            .classed('highlighted', d => d.properties.name === stop.state)
-            .classed('faded', d => stop.state && d.properties.name !== stop.state);
+          .classed('highlighted', d => d.properties.name === stop.state)
+          .classed('faded', d => stop.state && d.properties.name !== stop.state);
 
         const storyBox = d3.select("#story-box");
+
         storyBox.classed('visible', true)
             .select("h3").text(stop.title);
-        storyBox.select("p").text(stop.text);
-        d3.select("#title").text(stop.title);
+
+        storyBox
+          .select("p")
+          .text(stop.text);
+
+        d3.select("#title")
+          .text(stop.title);
         
         tourStep++;
         tourTimeout = setTimeout(runTourStep, 4000);
@@ -684,10 +825,18 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
         clearTimeout(tourTimeout);
         isTourActive = false;
         
-        d3.select("#story-box").classed('visible', false);
-        d3.select("#main-slider").style("display", "flex");
-        d3.selectAll('.state').classed('highlighted', false).classed('faded', false);
-        d3.select(".visualization-wrapper").style("pointer-events", "auto");
+        d3.select("#story-box")
+          .classed('visible', false);
+
+        d3.select("#main-slider")
+          .style("display", "flex");
+
+        d3.selectAll('.state')
+          .classed('highlighted', false)
+          .classed('faded', false);
+
+        d3.select(".visualization-wrapper")
+          .style("pointer-events", "auto");
         
         renderScene('map');
     }
@@ -715,11 +864,18 @@ Wyoming,15.9,13.5,12.21,12.11,14.93,14.9,16.31,12.45,15.42,16.32,16.25,17.67,18.
         if (currentScene === 'map') {
             currentDataType = this.value === "0" ? "temperature" : "precipitation";
             let mapType = currentDataType.charAt(0).toUpperCase() + currentDataType.slice(1);
+
             d3.select("#title").text(`US Average Annual ${mapType}`);
-            d3.select("#unit-toggle").style("display", currentDataType === 'temperature' ? 'block' : 'none');
-            d3.select("#slider-label-center").style("display", "none");
+
+            d3.select("#unit-toggle")
+              .style("display", currentDataType === 'temperature' ? 'block' : 'none');
+
+            d3.select("#slider-label-center")
+              .style("display", "none");
+
             updateMapColorsAndLegend();
-        } else { // details view
+
+        } else { 
              const value = this.value;
              const bothLabel = d3.select("#slider-label-center");
              if (value === "0") { currentDataType = "temperature"; bothLabel.style("font-weight", "400"); }
